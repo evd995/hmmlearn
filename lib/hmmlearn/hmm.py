@@ -14,7 +14,7 @@ from sklearn.utils import check_random_state
 
 from . import _utils
 from .stats import log_multivariate_normal_density
-from .base import BaseHMM
+from .base import BaseHMM, BaseHMMforMultinomial
 from .utils import fill_covars, log_normalize, normalize
 
 
@@ -309,7 +309,7 @@ class GaussianHMM(BaseHMM):
                                      (cvweight + stats['post'][:, None, None]))
 
 
-class MultinomialHMM(BaseHMM):
+class MultinomialHMM(BaseHMMforMultinomial):
     """
     Hidden Markov Model with multinomial emissions
 
