@@ -456,7 +456,7 @@ class MultinomialHMM(BaseHMM):
 
     def _compute_likelihood(self, X, param_ix=None):
         probs = []
-        n_trials = self.n_trials if param_ix is not None else self.n_trials[param_ix]
+        n_trials = self.n_trials if param_ix is None else self.n_trials[param_ix]
 
         for component in range(self.n_components):
             score = multinomial.pmf(
@@ -466,7 +466,7 @@ class MultinomialHMM(BaseHMM):
 
     def _compute_log_likelihood(self, X, param_ix=None):
         logprobs = []
-        n_trials = self.n_trials if param_ix is not None else self.n_trials[param_ix]
+        n_trials = self.n_trials if param_ix is None else self.n_trials[param_ix]
 
         for component in range(self.n_components):
             score = multinomial.logpmf(
