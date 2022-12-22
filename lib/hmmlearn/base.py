@@ -531,8 +531,74 @@ class BaseHMM(BaseEstimator):
 
         return self
 
-    def _fit_scaling(self, X):
-        frameprob = self._compute_likelihood(X)
+    def fit_with_ntrials(self, X, lengths=None):
+        """
+        QUICK FIX FOR ISSUE WITH n_trials in MultinomialHMM
+
+        Estimate model parameters.
+
+        An initialization step is performed before entering the
+        EM algorithm. If you want to avoid this step for a subset of
+        the parameters, pass proper ``init_params`` keyword argument
+        to estimator's constructor.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Feature matrix of individual samples.
+        lengths : array-like of integers, shape (n_sequences, )
+            Lengths of the individual sequences in ``X``. The sum of
+            these should be ``n_samples``.
+
+        Returns
+        -------
+        self : object
+            Returns self.
+        """
+        X = check_array(X)
+        self._init(X)
+        self._check()
+
+        self.monitor_._reset()
+
+        impl = {
+            "scaling": self._fit_scaling,
+            "log": self._fit_log,
+        }[self.implementation]
+        for iter in range(self.n_iter):
+            stats = self._initialize_sufficient_statistics()
+            curr_log_prob = 0
+
+            X_split = _utils.split_X_lengths(X, lengths)
+            ix_split = _utils.split_X_lengths(np.arange(X.shape[0]), lengths)
+            for sub_X, sub_ix in zip(X_split, ix_split):
+                lattice, log_prob, posteriors, fwdlattice, bwdlattice = \
+                        impl(sub_X, param_ix=sub_ix)
+                # Derived HMM classes will implement the following method to
+                # update their probability distributions, so keep
+                # a single call to this method for simplicity.
+                self._accumulate_sufficient_statistics(
+                    stats, sub_X, lattice, posteriors, fwdlattice,
+                    bwdlattice)
+                curr_log_prob += log_prob
+
+            # XXX must be before convergence check, because otherwise
+            #     there won't be any updates for the case ``n_iter=1``.
+            self._do_mstep(stats)
+
+            self.monitor_.report(curr_log_prob)
+            if self.monitor_.converged:
+                break
+
+        if (self.transmat_.sum(axis=1) == 0).any():
+            _log.warning("Some rows of transmat_ have zero sum because no "
+                         "transition from the state was ever observed.")
+
+        return self
+
+
+    def _fit_scaling(self, X, param_ix=None):
+        frameprob = self._compute_likelihood(X, param_ix=param_ix)
         log_prob, fwdlattice, scaling_factors = _hmmc.forward_scaling(
             self.startprob_, self.transmat_, frameprob)
         bwdlattice =  _hmmc.backward_scaling(
@@ -540,8 +606,8 @@ class BaseHMM(BaseEstimator):
         posteriors = self._compute_posteriors_scaling(fwdlattice, bwdlattice)
         return frameprob, log_prob, posteriors, fwdlattice, bwdlattice
 
-    def _fit_log(self, X):
-        log_frameprob = self._compute_log_likelihood(X)
+    def _fit_log(self, X, param_ix=None):
+        log_frameprob = self._compute_log_likelihood(X, param_ix=param_ix)
         log_prob, fwdlattice = _hmmc.forward_log(
             self.startprob_, self.transmat_, log_frameprob)
         bwdlattice = _hmmc.backward_log(

@@ -454,19 +454,23 @@ class MultinomialHMM(BaseHMM):
         if self.n_trials is None:
             raise ValueError("n_trials must be set")
 
-    def _compute_likelihood(self, X):
+    def _compute_likelihood(self, X, param_ix=None):
         probs = []
+        n_trials = self.n_trials if param_ix is not None else self.n_trials[param_ix]
+
         for component in range(self.n_components):
             score = multinomial.pmf(
-                X, n=self.n_trials, p=self.emissionprob_[component, :])
+                X, n=n_trials, p=self.emissionprob_[component, :])
             probs.append(score)
         return np.vstack(probs).T
 
-    def _compute_log_likelihood(self, X):
+    def _compute_log_likelihood(self, X, param_ix=None):
         logprobs = []
+        n_trials = self.n_trials if param_ix is not None else self.n_trials[param_ix]
+
         for component in range(self.n_components):
             score = multinomial.logpmf(
-                X, n=self.n_trials, p=self.emissionprob_[component, :])
+                X, n=n_trials, p=self.emissionprob_[component, :])
             logprobs.append(score)
         return np.vstack(logprobs).T
 
